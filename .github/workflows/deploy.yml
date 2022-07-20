@@ -1,0 +1,63 @@
+name: Deploy
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
+    secrets:
+      S3_BUCKET_NAME:
+        required: true
+      NPMRC:
+        required: true
+      NEXT_PUBLIC_PRISMIC_REPO:
+        required: true
+
+jobs:
+  deploy:
+    name: Deploy
+    environment: ${{ inputs.environment }}
+    runs-on:
+      - self-hosted
+      - linux
+    container:
+      image: dev-clear-registry.clearme.com/clear/node-14:2022.01.05
+      options: --user root
+    env:
+      S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}
+      NPMRC: ${{ secrets.NPMRC }}
+      NEXT_PUBLIC_PRISMIC_REPO: ${{ secrets.NEXT_PUBLIC_PRISMIC_REPO }}
+    steps:
+      - name: Creating ~/.npmrc
+        run: echo $NPMRC | base64 -d > ~/.npmrc
+
+      - uses: actions/checkout@v2
+
+      - name: Install Node Modules
+        run: yarn
+
+      - name: Build
+        run: yarn build
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          role-to-assume: arn:aws:iam::982464520602:role/terragrunt_power_role
+          aws-region: us-east-1
+          role-duration-seconds: 900
+
+      - name: Install AWS dependencies
+        run: |
+          curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+          rm -rf ./aws || true
+          unzip -o -q awscliv2.zip || true
+          ./aws/install -u
+
+      - name: Remove .html extensions
+        run: bash ./scripts/remove-html-extension.sh
+
+      - name: Upload to s3
+        run: |
+          aws s3 sync out s3://$S3_BUCKET_NAME --exclude "*.js" --exclude "*.json" --exclude "*.map" --exclude "*.css" --content-type "text/html"
+          aws s3 sync out s3://$S3_BUCKET_NAME --delete
