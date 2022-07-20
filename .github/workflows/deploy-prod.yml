@@ -1,0 +1,17 @@
+name: Deploy Prod
+
+on:
+  push:
+    branches:
+      - 'main'
+
+jobs:
+  deploy-prod:
+    name: Deploy Prod
+    uses: ./.github/workflows/deploy.yml
+    with:
+      environment: prod
+    secrets:
+      S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}
+      NPMRC: ${{ secrets.AIRPORT_NPMRC }}
+      NEXT_PUBLIC_PRISMIC_REPO: ${{ secrets.NEXT_PUBLIC_PRISMIC_REPO }}
