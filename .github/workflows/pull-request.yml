@@ -1,0 +1,55 @@
+name: Pull Request
+
+on: pull_request
+
+jobs:
+  pull-request:
+    name: Pull Request
+    runs-on:
+      - self-hosted
+      - linux
+    container:
+      image: dev-clear-registry.clearme.com/clear/node-14:2022.01.05
+      options: --user root
+    environment: dev
+    env:
+      NPMRC: ${{ secrets.AIRPORT_NPMRC }}
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      SONAR_HOST_URL: ${{ secrets.SONAR_HOSTNAME }}
+      NEXT_PUBLIC_PRISMIC_REPO: ${{ secrets.NEXT_PUBLIC_PRISMIC_REPO }}
+    steps:
+      - name: Creating ~/.npmrc
+        run: echo $NPMRC | base64 -d > ~/.npmrc
+
+      - uses: actions/checkout@v2
+
+      - name: Install Node Modules
+        run: yarn
+
+      - name: Lint
+        run: yarn lint
+
+      - name: Unit Test
+        run: |
+          yarn coverage:clean
+          yarn test:unit
+
+      - name: Install Cypress Dependencies
+        run: apt-get --assume-yes install libgtk2.0-0 libgtk-3-0 libgbm-dev libnotify-dev libgconf-2-4 libnss3 libxss1 libasound2 libxtst6 xauth xvfb
+
+      - name: E2E Test
+        run: yarn test:e2e
+
+      - name: Upload E2E videos
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v2
+        with:
+          name: videos
+          path: cypress/videos
+          retention-days: 5
+
+      - name: Merge Coverage
+        run: yarn coverage:reportCombined
+
+      - name: SonarQube Scan
+        uses: sonarsource/sonarqube-scan-action@master
