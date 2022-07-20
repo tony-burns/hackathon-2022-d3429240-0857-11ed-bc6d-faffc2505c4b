@@ -1,0 +1,9 @@
+{
+  "extends": "./node_modules/@clear/ts-config/src/tsconfig.json",
+  "compilerOptions": {
+    "jsx": "preserve",
+    "incremental": true,
+    "baseUrl": "./src",
+  },
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx"],
+}
